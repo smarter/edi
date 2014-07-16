@@ -83,8 +83,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
   function atOffset(buf, offset) {
     // The Proxy API is part of ECMAScript 6
-    return new Proxy({},
-    {
+    return Proxy.create({
       get: function(target, attr) {
         if (attr == "plusOffset")
           return function(offset2) {
