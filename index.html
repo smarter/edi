@@ -20,8 +20,14 @@
         </tbody>
       </table>
       <p>
-        Use another image (will be converted to grayscale):
+        <strong>Use another image (will be converted to grayscale):</strong>
+        <br>
         <input type="file" id="localFile" accept="image/*" multiple>
+        <br>
+        <form id="addUrlForm">
+          <input type="url" id="imageUrl" placeholder="Enter the URL of an image" required>
+          <button type="submit">Add (this only works if CORS is enabled on the server)</button>
+        </form>
       </p>
     </body>
 </html>

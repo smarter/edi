@@ -18,12 +18,21 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   });
 
+  document.getElementById("addUrlForm").addEventListener("submit", function(e) {
+    let imageUrl = document.getElementById("imageUrl");
+    loadImage(imageUrl.value)
+    imageUrl.value = "";
+
+    // Don't actually submit the form, that would reload the page
+    e.preventDefault();
+  });
 
   function loadImage(url) {
     let img = new Image();
     img.addEventListener("load", function() {
       addLine(img);
     });
+    img.crossOrigin = "Anonymous";
     img.src = url;
   }
 
