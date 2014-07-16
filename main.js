@@ -40,6 +40,7 @@ document.addEventListener("DOMContentLoaded", function() {
     comparisonBody.appendChild(row);
 
     upsample(edi, imgCanvas, addCanvas(row));
+    upsample(daala, imgCanvas, addCanvas(row));
     upsample(bilinear, imgCanvas, addCanvas(row));
   }
 
@@ -82,8 +83,14 @@ document.addEventListener("DOMContentLoaded", function() {
 
   function atOffset(buf, offset) {
     // The Proxy API is part of ECMAScript 6
-    return new Proxy({}, {
+    return new Proxy({},
+    {
       get: function(target, attr) {
+        if (attr == "plusOffset")
+          return function(offset2) {
+            return atOffset(buf, offset + offset2);
+          };
+
         var i = parseInt(attr, 10);
         return srcLuma(buf, offset + i);
       },
@@ -121,6 +128,104 @@ document.addEventListener("DOMContentLoaded", function() {
       } else {
         for (i = 0; i < src_width * 2; i++)
           d[i] = d[i - dest_stride];
+      }
+    }
+  }
+
+  // Based on od_state_upsample8 in src/state.c in Daala
+  function daala(src_width, src_height, src_data, dest_data) {
+    function memset(dst, c, n) {
+      for (var i = 0; i < n; i++)
+        dst[i] = c;
+    }
+    function OD_COPY(dst, src, n) {
+      for (var i = 0; i < n; i++)
+        dst[i] = src[i];
+    }
+    // Don't bother with padding for the JS demo
+    var ypad = 0;
+    var xpad = 0;
+
+    var src_stride = src_width;
+    var dest_stride = 2 * src_width;
+    var w = src_width;
+    var h = src_height;
+    var x, y;
+
+    var src = atOffset(src_data, 0);
+    var dst = atOffset(dest_data, 0);
+
+    var ref_line_buf = new Array(8);
+    for (var i = 0; i < 8; i++)
+      ref_line_buf[i] = new Uint8ClampedArray(new ArrayBuffer(2*(w + xpad)));
+
+    for (y = -ypad; y < h + ypad + 3; y++) {
+      /*Horizontal filtering:*/
+      if (y < h + ypad) {
+        var buf;
+        buf = ref_line_buf[y & 7];
+        memset(buf - (xpad << 1), src[0], (xpad - 2) << 1);
+        buf[0] = src[0];
+        buf[1] = (20*(src[0] + src[1])
+         - 5*(src[0] + src[2]) + src[0] + src[3] + 16) >> 5;
+        buf[2] = src[1];
+        buf[3] = (20*(src[1] + src[2])
+         - 5*(src[0] + src[3]) + src[0] + src[4] + 16) >> 5;
+        for (x = 2; x < w - 3; x++) {
+          buf[x << 1] = src[x];
+          buf[x << 1 | 1] = (20*(src[x] + src[x + 1])
+           - 5*(src[x - 1] + src[x + 2]) + src[x - 2] + src[x + 3] + 16) >> 5;
+        }
+        buf[x << 1] = src[x];
+        buf[x << 1 | 1] = (20*(src[x] + src[x + 1])
+         - 5*(src[x - 1] + src[x + 2]) + src[x - 2] + src[x + 2] + 16) >> 5;
+        x++;
+        buf[x << 1] = src[x];
+        buf[x << 1 | 1] = (20*(src[x] + src[x + 1])
+         - 5*(src[x - 1] + src[x + 1]) + src[x - 2] + src[x + 1] + 16) >> 5;
+        x++;
+        buf[x << 1] = src[x];
+        buf[x << 1 | 1] =
+         (36*src[x] - 5*src[x - 1] + src[x - 2] + 16) >> 5;
+        x++;
+        buf[x << 1] = src[w - 1];
+        buf[x << 1 | 1] = (31*src[w - 1] + src[w - 2] + 16) >> 5;
+        memset(buf + (++x << 1), src[w - 1], (xpad - 1) << 1);
+        if (y >= 0 && y + 1 < h)
+          src = src.plusOffset(src_stride);
+      }
+      /*Vertical filtering:*/
+      if (y >= -ypad + 3) {
+        if (y < 1 || y > h + 3) {
+          OD_COPY(dst - (xpad << 1),
+           ref_line_buf[(y - 3) & 7] - (xpad << 1),
+           (w + (xpad << 1)) << 1);
+          dst = dst.plusOffset(dest_stride);
+          OD_COPY(dst - (xpad << 1),
+           ref_line_buf[(y - 3) & 7] - (xpad << 1),
+           (w + (xpad << 1)) << 1);
+          dst = dst.plusOffset(dest_stride);
+        }
+        else {
+          var buf = new Array(6);
+          buf[0] = ref_line_buf[(y - 5) & 7];
+          buf[1] = ref_line_buf[(y - 4) & 7];
+          buf[2] = ref_line_buf[(y - 3) & 7];
+          buf[3] = ref_line_buf[(y - 2) & 7];
+          buf[4] = ref_line_buf[(y - 1) & 7];
+          buf[5] = ref_line_buf[(y - 0) & 7];
+          // NOTE: this line needs to be tweaked (see original C code) to support padding
+          OD_COPY(dst, ref_line_buf[(y - 3) & 7],
+           (w + (xpad << 1)) << 1);
+
+          dst = dst.plusOffset(dest_stride);
+          for (x = -xpad << 1; x < (w + xpad) << 1; x++) {
+            dst[x] = (20*(buf[2][x] + buf[3][x])
+             - 5*(buf[1][x] + buf[4][x])
+             + buf[0][x] + buf[5][x] + 16) >> 5;
+          }
+          dst = dst.plusOffset(dest_stride);
+        }
       }
     }
   }
@@ -169,7 +274,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
       if (j >= MARGIN && j < src_height - MARGIN - 1) {
         for (i = 0; i < src_width - 1; i++) {
-          var curr = atOffset(src_data, src_stride * j + i);
+          var curr = s.plusOffset(i);
           var dx, dy, dx2;
           var v;
 
@@ -258,8 +363,8 @@ document.addEventListener("DOMContentLoaded", function() {
           var dx2;
           var v;
 
-          var curr1 = atOffset(dest_data, dest_stride * 2 * j + i);
-          var curr3 = atOffset(dest_data, dest_stride * (2 * j + 2) + i);
+          var curr1 = d1.plusOffset(i);
+          var curr3 = d3.plusOffset(i);
 
           dx = -d1[i - 1]
             - d3[i - 1]
