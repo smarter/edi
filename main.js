@@ -1,15 +1,15 @@
 document.addEventListener("DOMContentLoaded", function() {
   "use strict";
 
-  var comparisonBody = document.getElementById("comparisonBody");
+  let comparisonBody = document.getElementById("comparisonBody");
 
   loadImage("kitten.png");
   loadImage("rays.png");
   loadImage("checkerboard.png");
 
   document.getElementById("localFile").addEventListener("change", function(e) {
-    var files = e.target.files;
-    for (var i = 0, f; f = files[i]; i++) {
+    let files = e.target.files;
+    for (let i = 0, f; f = files[i]; i++) {
       if (!f.type.match('image.*')) {
         console.warn("Ignoring local file " + f.name + " with unsupported type " + f.type);
         continue;
@@ -20,7 +20,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
 
   function loadImage(url) {
-    var img = new Image();
+    let img = new Image();
     img.addEventListener("load", function() {
       addLine(img);
     });
@@ -28,13 +28,13 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   function addLine(img) {
-    var imgCanvas = document.createElement("canvas");
+    let imgCanvas = document.createElement("canvas");
     imgCanvas.width = img.width;
     imgCanvas.height = img.height;
     imgCanvas.getContext("2d").drawImage(img, 0, 0);
 
-    var row = document.createElement("tr");
-    var imgCell = document.createElement("td");
+    let row = document.createElement("tr");
+    let imgCell = document.createElement("td");
     imgCell.appendChild(img);
     row.appendChild(imgCell);
     comparisonBody.appendChild(row);
@@ -45,20 +45,20 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   function addCanvas(row) {
-    var cell = document.createElement("td");
-    var canvas = document.createElement("canvas");
+    let cell = document.createElement("td");
+    let canvas = document.createElement("canvas");
     cell.appendChild(canvas);
     row.appendChild(cell);
     return canvas;
   }
 
   function upsample(method, srcCanvas, dstCanvas) {
-    var width = srcCanvas.width;
-    var height = srcCanvas.height;
-    var dstHeight = height * 2;
-    var dstWidth = width * 2;
-    var imgData = srcCanvas.getContext("2d").getImageData(0, 0, width, height).data;
-    var buf = new Uint8ClampedArray(new ArrayBuffer(dstWidth * dstHeight * 4));
+    let width = srcCanvas.width;
+    let height = srcCanvas.height;
+    let dstHeight = height * 2;
+    let dstWidth = width * 2;
+    let imgData = srcCanvas.getContext("2d").getImageData(0, 0, width, height).data;
+    let buf = new Uint8ClampedArray(new ArrayBuffer(dstWidth * dstHeight * 4));
 
     dstCanvas.width = dstWidth;
     dstCanvas.height = dstHeight;
@@ -70,9 +70,9 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   function srcLuma(s, i) {
-    var r = s[4*i];
-    var g = s[4*i + 1];
-    var b = s[4*i + 2];
+    let r = s[4*i];
+    let g = s[4*i + 1];
+    let b = s[4*i + 2];
     return Math.round(0.2126*r + 0.7152*g + 0.0722*b);
   }
 
@@ -90,23 +90,23 @@ document.addEventListener("DOMContentLoaded", function() {
             return atOffset(buf, offset + offset2);
           };
 
-        var i = parseInt(attr, 10);
+        let i = parseInt(attr, 10);
         return srcLuma(buf, offset + i);
       },
       set: function(target, attr, value) {
-        var i = parseInt(attr, 10);
+        let i = parseInt(attr, 10);
         setLuma(buf, offset + i, value);
       }
     });
   }
 
   function bilinear(src_width, src_height, src_data, dest_data) {
-    var src_stride = src_width;
-    var dest_stride = 2 * src_width;
-    var i, j;
+    let src_stride = src_width;
+    let dest_stride = 2 * src_width;
+    let i, j;
     for (j = 0; j < src_height; j++) {
-      var s = atOffset(src_data, src_stride * j);
-      var d = atOffset(dest_data, dest_stride * 2 * j);
+      let s = atOffset(src_data, src_stride * j);
+      let d = atOffset(dest_data, dest_stride * 2 * j);
 
       for (i = 0; i < src_width; i++) {
         if (i < src_width - 1) {
@@ -119,7 +119,7 @@ document.addEventListener("DOMContentLoaded", function() {
       }
     }
     for (j = 0; j < src_height; j++) {
-      var d = atOffset(dest_data, dest_stride * (2 * j + 1));
+      let d = atOffset(dest_data, dest_stride * (2 * j + 1));
 
       if (j < src_height - 1) {
         for (i = 0; i < src_width * 2; i++)
@@ -134,34 +134,34 @@ document.addEventListener("DOMContentLoaded", function() {
   // Based on od_state_upsample8 in src/state.c in Daala
   function daala(src_width, src_height, src_data, dest_data) {
     function memset(dst, c, n) {
-      for (var i = 0; i < n; i++)
+      for (let i = 0; i < n; i++)
         dst[i] = c;
     }
     function OD_COPY(dst, src, n) {
-      for (var i = 0; i < n; i++)
+      for (let i = 0; i < n; i++)
         dst[i] = src[i];
     }
     // Don't bother with padding for the JS demo
-    var ypad = 0;
-    var xpad = 0;
+    let ypad = 0;
+    let xpad = 0;
 
-    var src_stride = src_width;
-    var dest_stride = 2 * src_width;
-    var w = src_width;
-    var h = src_height;
-    var x, y;
+    let src_stride = src_width;
+    let dest_stride = 2 * src_width;
+    let w = src_width;
+    let h = src_height;
+    let x, y;
 
-    var src = atOffset(src_data, 0);
-    var dst = atOffset(dest_data, 0);
+    let src = atOffset(src_data, 0);
+    let dst = atOffset(dest_data, 0);
 
-    var ref_line_buf = new Array(8);
-    for (var i = 0; i < 8; i++)
+    let ref_line_buf = new Array(8);
+    for (let i = 0; i < 8; i++)
       ref_line_buf[i] = new Uint8ClampedArray(new ArrayBuffer(2*(w + xpad)));
 
     for (y = -ypad; y < h + ypad + 3; y++) {
       /*Horizontal filtering:*/
       if (y < h + ypad) {
-        var buf;
+        let buf;
         buf = ref_line_buf[y & 7];
         memset(buf - (xpad << 1), src[0], (xpad - 2) << 1);
         buf[0] = src[0];
@@ -206,7 +206,7 @@ document.addEventListener("DOMContentLoaded", function() {
           dst = dst.plusOffset(dest_stride);
         }
         else {
-          var buf = new Array(6);
+          let buf = new Array(6);
           buf[0] = ref_line_buf[(y - 5) & 7];
           buf[1] = ref_line_buf[(y - 4) & 7];
           buf[2] = ref_line_buf[(y - 3) & 7];
@@ -235,7 +235,7 @@ document.addEventListener("DOMContentLoaded", function() {
   function edi(src_width, src_height, src_data, dest_data) {
     function reconstruct_v(src, stride, a, b, c, d)
     {
-      var x;
+      let x;
 
       x = src[0 - 3 * stride] * a;
       x += src[0 - 2 * stride] * b;
@@ -250,7 +250,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     function reconstruct_h(d1, d2, a, b, c, d)
     {
-      var x;
+      let x;
 
       x = d1[-3] * a;
       x += d1[-2] * b;
@@ -263,19 +263,19 @@ document.addEventListener("DOMContentLoaded", function() {
       return (x + 16) >> 5;
     }
 
-    var MARGIN = 3;
-    var src_stride = src_width;
-    var dest_stride = 2 * src_width;
-    var i, j;
+    let MARGIN = 3;
+    let src_stride = src_width;
+    let dest_stride = 2 * src_width;
+    let i, j;
     for (j = 0; j < src_height; j++) {
-      var s = atOffset(src_data, src_stride * j);
-      var d = atOffset(dest_data, dest_stride * 2 * j);
+      let s = atOffset(src_data, src_stride * j);
+      let d = atOffset(dest_data, dest_stride * 2 * j);
 
       if (j >= MARGIN && j < src_height - MARGIN - 1) {
         for (i = 0; i < src_width - 1; i++) {
-          var curr = s.plusOffset(i);
-          var dx, dy, dx2;
-          var v;
+          let curr = s.plusOffset(i);
+          let dx, dy, dx2;
+          let v;
 
           dx = -s[-src_stride + i]
             - s[-src_stride + i + 1]
@@ -335,9 +335,9 @@ document.addEventListener("DOMContentLoaded", function() {
         d[i * 2] = s[i];
         d[i * 2 + 1] = s[i];
       } else {
-        var s = atOffset(src_data, src_stride * j);
-        var d1 = atOffset(dest_data, dest_stride * 2 * j);
-        var d2 = atOffset(dest_data, dest_stride * (2 * j + 1));
+        let s = atOffset(src_data, src_stride * j);
+        let d1 = atOffset(dest_data, dest_stride * 2 * j);
+        let d2 = atOffset(dest_data, dest_stride * (2 * j + 1));
 
         for (i = 0; i < src_width - 1; i++) {
           d1[i * 2] = s[i];
@@ -352,18 +352,18 @@ document.addEventListener("DOMContentLoaded", function() {
       }
     }
     for (j = 0; j < src_height - 1; j++) {
-      var d1 = atOffset(dest_data, dest_stride * 2 * j);
-      var d2 = atOffset(dest_data, dest_stride * (2 * j + 1));
-      var d3 = atOffset(dest_data, dest_stride * (2 * j + 2));
+      let d1 = atOffset(dest_data, dest_stride * 2 * j);
+      let d2 = atOffset(dest_data, dest_stride * (2 * j + 1));
+      let d3 = atOffset(dest_data, dest_stride * (2 * j + 2));
 
       for (i = 0; i < src_width * 2; i++) {
         if (i >= MARGIN && i < src_width * 2 - MARGIN - 1) {
-          var dx, dy;
-          var dx2;
-          var v;
+          let dx, dy;
+          let dx2;
+          let v;
 
-          var curr1 = d1.plusOffset(i);
-          var curr3 = d3.plusOffset(i);
+          let curr1 = d1.plusOffset(i);
+          let curr3 = d3.plusOffset(i);
 
           dx = -d1[i - 1]
             - d3[i - 1]
@@ -424,8 +424,8 @@ document.addEventListener("DOMContentLoaded", function() {
       }
     }
     {
-      var d1 = atOffset(dest_data, dest_stride * 2 * j);
-      var d2 = atOffset(dest_data, dest_stride * (2 * j + 1));
+      let d1 = atOffset(dest_data, dest_stride * 2 * j);
+      let d2 = atOffset(dest_data, dest_stride * (2 * j + 1));
 
       for (i = 0; i < src_width; i++) {
         d1[2 * i + 1] = d1[i * 2];
