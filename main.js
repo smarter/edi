@@ -150,8 +150,7 @@ document.addEventListener("DOMContentLoaded", function() {
       for (let i = 0; i < n; i++)
         dst[i] = src[i];
     }
-    // Don't bother with padding for the JS demo
-    let ypad = 0;
+    let ypad = 8;
     let xpad = 0;
 
     let src_stride = src_width;
@@ -203,18 +202,8 @@ document.addEventListener("DOMContentLoaded", function() {
           src = src.plusOffset(src_stride);
       }
       /*Vertical filtering:*/
-      if (y >= -ypad + 3) {
-        if (y < 1 || y > h + 3) {
-          OD_COPY(dst - (xpad << 1),
-           ref_line_buf[(y - 3) & 7] - (xpad << 1),
-           (w + (xpad << 1)) << 1);
-          dst = dst.plusOffset(dest_stride);
-          OD_COPY(dst - (xpad << 1),
-           ref_line_buf[(y - 3) & 7] - (xpad << 1),
-           (w + (xpad << 1)) << 1);
-          dst = dst.plusOffset(dest_stride);
-        }
-        else {
+      // Don't output padding for JS demo
+      if (y >= 3) {
           let buf = new Array(6);
           buf[0] = ref_line_buf[(y - 5) & 7];
           buf[1] = ref_line_buf[(y - 4) & 7];
@@ -222,7 +211,6 @@ document.addEventListener("DOMContentLoaded", function() {
           buf[3] = ref_line_buf[(y - 2) & 7];
           buf[4] = ref_line_buf[(y - 1) & 7];
           buf[5] = ref_line_buf[(y - 0) & 7];
-          // NOTE: this line needs to be tweaked (see original C code) to support padding
           OD_COPY(dst, ref_line_buf[(y - 3) & 7],
            (w + (xpad << 1)) << 1);
 
@@ -235,7 +223,6 @@ document.addEventListener("DOMContentLoaded", function() {
           dst = dst.plusOffset(dest_stride);
         }
       }
-    }
   }
 
   // Original code by David Schleef: <./original/gstediupsample.c>
