@@ -333,18 +333,13 @@ document.addEventListener("DOMContentLoaded", function() {
       } else {
         let s = atOffset(src_data, src_stride * j);
         let d1 = atOffset(dest_data, dest_stride * 2 * j);
-        let d2 = atOffset(dest_data, dest_stride * (2 * j + 1));
 
         for (i = 0; i < src_width - 1; i++) {
           d1[i * 2] = s[i];
           d1[i * 2 + 1] = (s[i] + s[i + 1] + 1) >> 1;
-          d2[i * 2] = s[i];
-          d2[i * 2 + 1] = (s[i] + s[i + 1] + 1) >> 1;
         }
         d1[i * 2] = s[i];
         d1[i * 2 + 1] = s[i];
-        d2[i * 2] = s[i];
-        d2[i * 2 + 1] = s[i];
       }
     }
     for (j = 0; j < src_height - 1; j++) {
@@ -424,9 +419,8 @@ document.addEventListener("DOMContentLoaded", function() {
       let d2 = atOffset(dest_data, dest_stride * (2 * j + 1));
 
       for (i = 0; i < src_width; i++) {
-        d1[2 * i + 1] = d1[i * 2];
-        d2[2 * i] = d1[i * 2];
-        d2[2 * i + 1] = d1[i * 2];
+        d2[2 * i] = d1[2 * i];
+        d2[2 * i + 1] = d1[2 * i + 1];
       }
     }
   }
