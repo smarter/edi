@@ -228,7 +228,7 @@ document.addEventListener("DOMContentLoaded", function() {
   // Original code by David Schleef: <./original/gstediupsample.c>
   // See also <http://schleef.org/ds/cgak-demo-1> and
   // <http://schleef.org/ds/cgak-demo-1.png>
-  function edi(src_width, src_height, src_data, dest_data) {
+  function edi(w, h, src_data, dest_data) {
     function reconstruct_v(src, stride, a, b, c, d)
     {
       let x;
@@ -260,38 +260,40 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     let MARGIN = 3;
-    let src_stride = src_width;
-    let dest_stride = 2 * src_width;
-    let i, j;
-    for (j = 0; j < src_height; j++) {
-      let s = atOffset(src_data, src_stride * j);
-      let d = atOffset(dest_data, dest_stride * 2 * j);
+    let src_stride = w;
+    let dst_stride = 2 * w;
+    let xpad = 0;
+    let ypad = 0;
+    let x, y;
+    let s = atOffset(src_data, 0);
+    let d = atOffset(dest_data, 0);
 
-      if (j >= MARGIN && j < src_height - MARGIN - 1) {
-        for (i = 0; i < src_width - 1; i++) {
-          let curr = s.plusOffset(i);
+    /* Horizontal filtering */
+    for (y = -ypad; y < h + ypad; y++) {
+      if (y >= MARGIN && y < h - MARGIN - 1) {
+        for (x = 0; x < w - 1; x++) {
           let dx, dy, dx2;
           let v;
 
-          dx = -s[-src_stride + i]
-            - s[-src_stride + i + 1]
-            + s[src_stride + i]
-            + s[src_stride + i + 1];
+          dx = -s[-src_stride + x]
+            - s[-src_stride + x + 1]
+            + s[src_stride + x]
+            + s[src_stride + x + 1];
           dx *= 2;
 
-          dy = -s[-src_stride + i]
-            - 2 * s[i]
-            - s[src_stride + i]
-            + s[-src_stride + i + 1]
-            + 2 * s[i + 1]
-            + s[src_stride + i + 1];
+          dy = -s[-src_stride + x]
+            - 2 * s[x]
+            - s[src_stride + x]
+            + s[-src_stride + x + 1]
+            + 2 * s[x + 1]
+            + s[src_stride + x + 1];
 
-          dx2 = -s[-src_stride + i]
-            + 2 * s[i]
-            - s[src_stride + i]
-            - s[-src_stride + i + 1]
-            + 2 * s[i + 1]
-            - s[src_stride + i + 1];
+          dx2 = -s[-src_stride + x]
+            + 2 * s[x]
+            - s[src_stride + x]
+            - s[-src_stride + x + 1]
+            + 2 * s[x + 1]
+            - s[src_stride + x + 1];
 
           if (dy < 0) {
             dy = -dy;
@@ -299,82 +301,90 @@ document.addEventListener("DOMContentLoaded", function() {
           }
 
           if (Math.abs(dx) <= 4 * Math.abs(dx2)) {
-            v = (s[i] + s[i + 1] + 1) >> 1;
+            v = (s[x] + s[x + 1] + 1) >> 1;
           } else if (dx < 0) {
             if (dx < -2 * dy) {
-              v = reconstruct_v(curr, src_stride, 0, 0, 0, 16);
+              v = reconstruct_v(s.plusOffset(x), src_stride, 0, 0, 0, 16);
             } else if (dx < -dy) {
-              v = reconstruct_v(curr, src_stride, 0, 0, 8, 8);
+              v = reconstruct_v(s.plusOffset(x), src_stride, 0, 0, 8, 8);
             } else if (2 * dx < -dy) {
-              v = reconstruct_v(curr, src_stride, 0, 4, 8, 4);
+              v = reconstruct_v(s.plusOffset(x), src_stride, 0, 4, 8, 4);
             } else if (3 * dx < -dy) {
-              v = reconstruct_v(curr, src_stride, 1, 7, 7, 1);
+              v = reconstruct_v(s.plusOffset(x), src_stride, 1, 7, 7, 1);
             } else {
-              v = reconstruct_v(curr, src_stride, 4, 8, 4, 0);
+              v = reconstruct_v(s.plusOffset(x), src_stride, 4, 8, 4, 0);
             }
           } else {
             if (dx > 2 * dy) {
-              v = reconstruct_v(curr, -src_stride, 0, 0, 0, 16);
+              v = reconstruct_v(s.plusOffset(x), -src_stride, 0, 0, 0, 16);
             } else if (dx > dy) {
-              v = reconstruct_v(curr, -src_stride, 0, 0, 8, 8);
+              v = reconstruct_v(s.plusOffset(x), -src_stride, 0, 0, 8, 8);
             } else if (2 * dx > dy) {
-              v = reconstruct_v(curr, -src_stride, 0, 4, 8, 4);
+              v = reconstruct_v(s.plusOffset(x), -src_stride, 0, 4, 8, 4);
             } else if (3 * dx > dy) {
-              v = reconstruct_v(curr, -src_stride, 1, 7, 7, 1);
+              v = reconstruct_v(s.plusOffset(x), -src_stride, 1, 7, 7, 1);
             } else {
-              v = reconstruct_v(curr, -src_stride, 4, 8, 4, 0);
+              v = reconstruct_v(s.plusOffset(x), -src_stride, 4, 8, 4, 0);
             }
           }
-          d[i * 2] = s[i];
-          d[i * 2 + 1] = v;
+          d[x * 2] = s[x];
+          d[x * 2 + 1] = v;
         }
-        d[i * 2] = s[i];
-        d[i * 2 + 1] = s[i];
+        d[x * 2] = s[x];
+        d[x * 2 + 1] = s[x];
       } else {
-        let s = atOffset(src_data, src_stride * j);
-        let d1 = atOffset(dest_data, dest_stride * 2 * j);
-
-        for (i = 0; i < src_width - 1; i++) {
-          d1[i * 2] = s[i];
-          d1[i * 2 + 1] = (s[i] + s[i + 1] + 1) >> 1;
+        for (x = 0; x < w - 1; x++) {
+          d[x * 2] = s[x];
+          d[x * 2 + 1] = (s[x] + s[x + 1] + 1) >> 1;
         }
-        d1[i * 2] = s[i];
-        d1[i * 2 + 1] = s[i];
+        d[x * 2] = s[x];
+        d[x * 2 + 1] = s[x];
       }
-    }
-    for (j = 0; j < src_height - 1; j++) {
-      let d1 = atOffset(dest_data, dest_stride * 2 * j);
-      let d2 = atOffset(dest_data, dest_stride * (2 * j + 1));
-      let d3 = atOffset(dest_data, dest_stride * (2 * j + 2));
+      for (x = -xpad; x < 0; x++) {
+        d[x * 2] = s[0];
+        d[x * 2 + 1] = s[0];
+      }
+      for (x = w + 1; x < w + xpad; x++) {
+        d[x * 2] = s[w];
+        d[x * 2 + 1] = s[w];
+      }
 
-      for (i = 0; i < src_width * 2; i++) {
-        if (i >= MARGIN && i < src_width * 2 - MARGIN - 1) {
+      if (y >= 0 && y < h - 1)
+        s = s.plusOffset(src_stride);
+      d = d.plusOffset(2*dst_stride);
+    }
+    /* Vertical filtering */
+    d = atOffset(dest_data, 0);
+    for (y = -ypad; y < h + ypad - 1; y++) {
+      let d1 = d
+      let d2 = d.plusOffset(dst_stride);
+      let d3 = d.plusOffset(2*dst_stride);
+
+      for (x = -2*xpad; x < w * 2 + xpad*2; x++) {
+        if (x >= MARGIN && x < w * 2 - MARGIN - 1) {
           let dx, dy;
           let dx2;
           let v;
 
-          let curr1 = d1.plusOffset(i);
-          let curr3 = d3.plusOffset(i);
-
-          dx = -d1[i - 1]
-            - d3[i - 1]
-            + d1[i + 1]
-            + d3[i + 1];
+          dx = -d1[x - 1]
+            - d3[x - 1]
+            + d1[x + 1]
+            + d3[x + 1];
           dx *= 2;
 
-          dy = -d1[i - 1]
-            - 2 * d1[i]
-            - d1[i + 1]
-            + d3[i - 1]
-            + 2 * d3[i]
-            + d3[i + 1];
+          dy = -d1[x - 1]
+            - 2 * d1[x]
+            - d1[x + 1]
+            + d3[x - 1]
+            + 2 * d3[x]
+            + d3[x + 1];
 
-          dx2 = -d1[i - 1]
-            + 2 * d1[i]
-            - d1[i + 1]
-            - d3[i - 1]
-            + 2 * d3[i]
-            - d3[i + 1];
+          dx2 = -d1[x - 1]
+            + 2 * d1[x]
+            - d1[x + 1]
+            - d3[x - 1]
+            + 2 * d3[x]
+            - d3[x + 1];
 
           if (dy < 0) {
             dy = -dy;
@@ -382,46 +392,48 @@ document.addEventListener("DOMContentLoaded", function() {
           }
 
           if (Math.abs(dx) <= 4 * Math.abs(dx2)) {
-            v = (d1[i] + d3[i] + 1) >> 1;
+            v = (d1[x] + d3[x] + 1) >> 1;
           } else if (dx < 0) {
             if (dx < -2 * dy) {
-              v = reconstruct_h(curr1, curr3, 0, 0, 0, 16);
+              v = reconstruct_h(d1.plusOffset(x), d3.plusOffset(x), 0, 0, 0, 16);
             } else if (dx < -dy) {
-              v = reconstruct_h(curr1, curr3, 0, 0, 8, 8);
+              v = reconstruct_h(d1.plusOffset(x), d3.plusOffset(x), 0, 0, 8, 8);
             } else if (2 * dx < -dy) {
-              v = reconstruct_h(curr1, curr3, 0, 4, 8, 4);
+              v = reconstruct_h(d1.plusOffset(x), d3.plusOffset(x), 0, 4, 8, 4);
             } else if (3 * dx < -dy) {
-              v = reconstruct_h(curr1, curr3, 1, 7, 7, 1);
+              v = reconstruct_h(d1.plusOffset(x), d3.plusOffset(x), 1, 7, 7, 1);
             } else {
-              v = reconstruct_h(curr1, curr3, 4, 8, 4, 0);
+              v = reconstruct_h(d1.plusOffset(x), d3.plusOffset(x), 4, 8, 4, 0);
             }
           } else {
             if (dx > 2 * dy) {
-              v = reconstruct_h(curr3, curr1, 0, 0, 0, 16);
+              v = reconstruct_h(d3.plusOffset(x), d1.plusOffset(x), 0, 0, 0, 16);
             } else if (dx > dy) {
-              v = reconstruct_h(curr3, curr1, 0, 0, 8, 8);
+              v = reconstruct_h(d3.plusOffset(x), d1.plusOffset(x), 0, 0, 8, 8);
             } else if (2 * dx > dy) {
-              v = reconstruct_h (curr3, curr1, 0, 4, 8, 4);
+              v = reconstruct_h(d3.plusOffset(x), d1.plusOffset(x), 0, 4, 8, 4);
             } else if (3 * dx > dy) {
-              v = reconstruct_h(curr3, curr1, 1, 7, 7, 1);
+              v = reconstruct_h(d3.plusOffset(x), d1.plusOffset(x), 1, 7, 7, 1);
             } else {
-              v = reconstruct_h(curr3, curr1, 4, 8, 4, 0);
+              v = reconstruct_h(d3.plusOffset(x), d1.plusOffset(x), 4, 8, 4, 0);
             }
           }
-          d2[i] = v;
+          d2[x] = v;
         } else {
-          d2[i] = (d1[i] + d3[i] + 1) >> 1;
+          d2[x] = (d1[x] + d3[x] + 1) >> 1;
         }
       }
+      d = d.plusOffset(2*dst_stride);
     }
     {
-      let d1 = atOffset(dest_data, dest_stride * 2 * j);
-      let d2 = atOffset(dest_data, dest_stride * (2 * j + 1));
+      let d1 = d;
+      let d2 = d.plusOffset(dst_stride);
 
-      for (i = 0; i < src_width; i++) {
-        d2[2 * i] = d1[2 * i];
-        d2[2 * i + 1] = d1[2 * i + 1];
+      for (x = 0; x < w; x++) {
+        d2[2 * x] = d1[2 * x];
+        d2[2 * x + 1] = d1[2 * x + 1];
       }
+      d = d.plusOffset(2*dst_stride);
     }
   }
 });
