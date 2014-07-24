@@ -94,7 +94,7 @@ document.addEventListener("DOMContentLoaded", function() {
     // The Proxy API is part of ECMAScript 6
     return Proxy.create({
       get: function(target, attr) {
-        if (attr == "plusOffset")
+        if (attr == "plus")
           return function(offset2) {
             return atOffset(buf, offset + offset2);
           };
@@ -199,7 +199,7 @@ document.addEventListener("DOMContentLoaded", function() {
         buf[x << 1 | 1] = (31*src[w - 1] + src[w - 2] + 16) >> 5;
         memset(buf + (++x << 1), src[w - 1], (xpad - 1) << 1);
         if (y >= 0 && y + 1 < h)
-          src = src.plusOffset(src_stride);
+          src = src.plus(src_stride);
       }
       /*Vertical filtering:*/
       // Don't output padding for JS demo
@@ -214,13 +214,13 @@ document.addEventListener("DOMContentLoaded", function() {
           OD_COPY(dst, ref_line_buf[(y - 3) & 7],
            (w + (xpad << 1)) << 1);
 
-          dst = dst.plusOffset(dest_stride);
+          dst = dst.plus(dest_stride);
           for (x = -xpad << 1; x < (w + xpad) << 1; x++) {
             dst[x] = (20*(buf[2][x] + buf[3][x])
              - 5*(buf[1][x] + buf[4][x])
              + buf[0][x] + buf[5][x] + 16) >> 5;
           }
-          dst = dst.plusOffset(dest_stride);
+          dst = dst.plus(dest_stride);
         }
       }
   }
@@ -304,27 +304,27 @@ document.addEventListener("DOMContentLoaded", function() {
             v = (s[x] + s[x + 1] + 1) >> 1;
           } else if (dx < 0) {
             if (dx < -2 * dy) {
-              v = reconstruct_v(s.plusOffset(x), src_stride, 0, 0, 0, 16);
+              v = reconstruct_v(s.plus(x), src_stride, 0, 0, 0, 16);
             } else if (dx < -dy) {
-              v = reconstruct_v(s.plusOffset(x), src_stride, 0, 0, 8, 8);
+              v = reconstruct_v(s.plus(x), src_stride, 0, 0, 8, 8);
             } else if (2 * dx < -dy) {
-              v = reconstruct_v(s.plusOffset(x), src_stride, 0, 4, 8, 4);
+              v = reconstruct_v(s.plus(x), src_stride, 0, 4, 8, 4);
             } else if (3 * dx < -dy) {
-              v = reconstruct_v(s.plusOffset(x), src_stride, 1, 7, 7, 1);
+              v = reconstruct_v(s.plus(x), src_stride, 1, 7, 7, 1);
             } else {
-              v = reconstruct_v(s.plusOffset(x), src_stride, 4, 8, 4, 0);
+              v = reconstruct_v(s.plus(x), src_stride, 4, 8, 4, 0);
             }
           } else {
             if (dx > 2 * dy) {
-              v = reconstruct_v(s.plusOffset(x), -src_stride, 0, 0, 0, 16);
+              v = reconstruct_v(s.plus(x), -src_stride, 0, 0, 0, 16);
             } else if (dx > dy) {
-              v = reconstruct_v(s.plusOffset(x), -src_stride, 0, 0, 8, 8);
+              v = reconstruct_v(s.plus(x), -src_stride, 0, 0, 8, 8);
             } else if (2 * dx > dy) {
-              v = reconstruct_v(s.plusOffset(x), -src_stride, 0, 4, 8, 4);
+              v = reconstruct_v(s.plus(x), -src_stride, 0, 4, 8, 4);
             } else if (3 * dx > dy) {
-              v = reconstruct_v(s.plusOffset(x), -src_stride, 1, 7, 7, 1);
+              v = reconstruct_v(s.plus(x), -src_stride, 1, 7, 7, 1);
             } else {
-              v = reconstruct_v(s.plusOffset(x), -src_stride, 4, 8, 4, 0);
+              v = reconstruct_v(s.plus(x), -src_stride, 4, 8, 4, 0);
             }
           }
           d[x * 2] = s[x];
@@ -350,15 +350,15 @@ document.addEventListener("DOMContentLoaded", function() {
       }
 
       if (y >= 0 && y < h - 1)
-        s = s.plusOffset(src_stride);
-      d = d.plusOffset(2*dst_stride);
+        s = s.plus(src_stride);
+      d = d.plus(2*dst_stride);
     }
     /* Vertical filtering */
     d = atOffset(dest_data, 0);
     for (y = -ypad; y < h + ypad - 1; y++) {
       let d1 = d
-      let d2 = d.plusOffset(dst_stride);
-      let d3 = d.plusOffset(2*dst_stride);
+      let d2 = d.plus(dst_stride);
+      let d3 = d.plus(2*dst_stride);
 
       for (x = -2*xpad; x < w * 2 + xpad*2; x++) {
         if (x >= MARGIN && x < w * 2 - MARGIN - 1) {
@@ -395,27 +395,27 @@ document.addEventListener("DOMContentLoaded", function() {
             v = (d1[x] + d3[x] + 1) >> 1;
           } else if (dx < 0) {
             if (dx < -2 * dy) {
-              v = reconstruct_h(d1.plusOffset(x), d3.plusOffset(x), 0, 0, 0, 16);
+              v = reconstruct_h(d1.plus(x), d3.plus(x), 0, 0, 0, 16);
             } else if (dx < -dy) {
-              v = reconstruct_h(d1.plusOffset(x), d3.plusOffset(x), 0, 0, 8, 8);
+              v = reconstruct_h(d1.plus(x), d3.plus(x), 0, 0, 8, 8);
             } else if (2 * dx < -dy) {
-              v = reconstruct_h(d1.plusOffset(x), d3.plusOffset(x), 0, 4, 8, 4);
+              v = reconstruct_h(d1.plus(x), d3.plus(x), 0, 4, 8, 4);
             } else if (3 * dx < -dy) {
-              v = reconstruct_h(d1.plusOffset(x), d3.plusOffset(x), 1, 7, 7, 1);
+              v = reconstruct_h(d1.plus(x), d3.plus(x), 1, 7, 7, 1);
             } else {
-              v = reconstruct_h(d1.plusOffset(x), d3.plusOffset(x), 4, 8, 4, 0);
+              v = reconstruct_h(d1.plus(x), d3.plus(x), 4, 8, 4, 0);
             }
           } else {
             if (dx > 2 * dy) {
-              v = reconstruct_h(d3.plusOffset(x), d1.plusOffset(x), 0, 0, 0, 16);
+              v = reconstruct_h(d3.plus(x), d1.plus(x), 0, 0, 0, 16);
             } else if (dx > dy) {
-              v = reconstruct_h(d3.plusOffset(x), d1.plusOffset(x), 0, 0, 8, 8);
+              v = reconstruct_h(d3.plus(x), d1.plus(x), 0, 0, 8, 8);
             } else if (2 * dx > dy) {
-              v = reconstruct_h(d3.plusOffset(x), d1.plusOffset(x), 0, 4, 8, 4);
+              v = reconstruct_h(d3.plus(x), d1.plus(x), 0, 4, 8, 4);
             } else if (3 * dx > dy) {
-              v = reconstruct_h(d3.plusOffset(x), d1.plusOffset(x), 1, 7, 7, 1);
+              v = reconstruct_h(d3.plus(x), d1.plus(x), 1, 7, 7, 1);
             } else {
-              v = reconstruct_h(d3.plusOffset(x), d1.plusOffset(x), 4, 8, 4, 0);
+              v = reconstruct_h(d3.plus(x), d1.plus(x), 4, 8, 4, 0);
             }
           }
           d2[x] = v;
@@ -423,17 +423,17 @@ document.addEventListener("DOMContentLoaded", function() {
           d2[x] = (d1[x] + d3[x] + 1) >> 1;
         }
       }
-      d = d.plusOffset(2*dst_stride);
+      d = d.plus(2*dst_stride);
     }
     {
       let d1 = d;
-      let d2 = d.plusOffset(dst_stride);
+      let d2 = d.plus(dst_stride);
 
       for (x = 0; x < w; x++) {
         d2[2 * x] = d1[2 * x];
         d2[2 * x + 1] = d1[2 * x + 1];
       }
-      d = d.plusOffset(2*dst_stride);
+      d = d.plus(2*dst_stride);
     }
   }
 });
