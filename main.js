@@ -344,9 +344,9 @@ document.addEventListener("DOMContentLoaded", function() {
         d[x * 2] = s[0];
         d[x * 2 + 1] = s[0];
       }
-      for (x = w + 1; x < w + xpad; x++) {
-        d[x * 2] = s[w];
-        d[x * 2 + 1] = s[w];
+      for (x = w; x < w + xpad; x++) {
+        d[x * 2] = s[w - 1];
+        d[x * 2 + 1] = s[w - 1];
       }
 
       if (y >= 0 && y < h - 1)
