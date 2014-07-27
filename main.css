@@ -1,0 +1,7 @@
+#paddingInput:checked ~ table canvas.clipped {
+    display: none;
+}
+#paddingInput:not(:checked) ~ table canvas.unclipped {
+    display: none;
+}
+
