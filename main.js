@@ -245,7 +245,6 @@ document.addEventListener("DOMContentLoaded", function() {
           src = src.plus(src_stride);
       }
       /*Vertical filtering:*/
-      // Don't output padding for JS demo
       if (y >= -ypad + 3) {
         if (y < 1 || y > h + 3) {
           OD_COPY(dst.plus(-(xpad << 1)),
@@ -593,25 +592,7 @@ document.addEventListener("DOMContentLoaded", function() {
       if (y >= 0 && y < h - 1)
         s = s.plus(src_stride);
       d = d.plus(2*dst_stride);
-    }/*
-       for (; y < h + ypad; y++) {
-       let d2 = d.plus(dst_stride);
-
-       for (x = 0; x < w; x++) {
-        d[2 * x] = s[x];
-        d2[2 * x] = s[x];
-      }
-      for (x = -xpad; x < 0; x++) {
-        d[2 * x] = s[0];
-        d2[2 * x] = s[0];
-      }
-      for (x = w; x < w + xpad; x++) {
-        d[2 * x] = s[w - 1];
-        d2[2 * x] = s[w - 1];
-      }
-      d = d.plus(2*dst_stride);
-    }*/
-
+    }
     /* Horizontal filtering */
     d = dst.plus(-dst_stride*2*ypad);
     for (y = -2*ypad; y < 2*h + 2*ypad; y++) {
