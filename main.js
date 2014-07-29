@@ -10,7 +10,7 @@ document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("localFile").addEventListener("change", function(e) {
     let files = e.target.files;
     for (let i = 0, f; f = files[i]; i++) {
-      if (!f.type.match('image.*')) {
+      if (!f.type.match("image.*")) {
         console.warn("Ignoring local file " + f.name + " with unsupported type " + f.type);
         continue;
       }
