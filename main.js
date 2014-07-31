@@ -354,7 +354,12 @@ document.addEventListener("DOMContentLoaded", function() {
           }
 
           if (Math.abs(dx) <= 4 * Math.abs(dx2)) {
-            v = (s[x] + s[x + 1] + 1) >> 1;
+            if (x < 2 || x >= w - 3) {
+              v = (s[x] + s[x + 1] + 1) >> 1;
+            } else {
+              v = (20*(s[x] + s[x + 1])
+               - 5*(s[x - 1] + s[x + 2]) + s[x - 2] + s[x + 3] + 16) >> 5;
+            }
           } else if (dx < 0) {
             if (dx < -2 * dy) {
               v = reconstruct_v(s.plus(x), 1, src_stride, 0, 0, 0, 16);
@@ -388,7 +393,13 @@ document.addEventListener("DOMContentLoaded", function() {
       } else {
         for (x = 0; x < w - 1; x++) {
           d[x * 2] = s[x];
-          d[x * 2 + 1] = (s[x] + s[x + 1] + 1) >> 1;
+          if (x < 2 || x >= w - 3) {
+            d[x * 2 + 1] = (s[x] + s[x + 1] + 1) >> 1;
+          } else {
+            d[x * 2 + 1] =
+              (20*(s[x] + s[x + 1])
+               - 5*(s[x - 1] + s[x + 2]) + s[x - 2] + s[x + 3] + 16) >> 5;
+          }
         }
         d[x * 2] = s[x];
         d[x * 2 + 1] = s[x];
@@ -412,6 +423,10 @@ document.addEventListener("DOMContentLoaded", function() {
       let d1 = d;
       let d2 = d.plus(dst_stride);
       let d3 = d.plus(2*dst_stride);
+      let d5 = d.plus(4*dst_stride);
+      let d7 = d.plus(6*dst_stride);
+      let dm1 = d.plus(-2*dst_stride);
+      let dm3 = d.plus(-4*dst_stride);
 
       for (x = -2*xpad; x < w * 2 + xpad*2; x++) {
         if (x >= MARGIN && x < w * 2 - MARGIN - 1) {
@@ -445,7 +460,12 @@ document.addEventListener("DOMContentLoaded", function() {
           }
 
           if (Math.abs(dx) <= 4 * Math.abs(dx2)) {
-            v = (d1[x] + d3[x] + 1) >> 1;
+            if (y < 2 || y >= w - 3) {
+              v = (d1[x] + d3[x] + 1) >> 1;
+            } else {
+              v = (20*(d1[x] + d3[x])
+               - 5*(dm1[x] + d5[x]) + dm3[x] + d7[x] + 16) >> 5;
+            }
           } else if (dx < 0) {
             if (dx < -2 * dy) {
               v = reconstruct_h(d1.plus(x), d3.plus(x), 0, 0, 0, 16);
@@ -473,7 +493,12 @@ document.addEventListener("DOMContentLoaded", function() {
           }
           d2[x] = v;
         } else {
-          d2[x] = (d1[x] + d3[x] + 1) >> 1;
+          if (y < 2 || y >= w - 3) {
+            d2[x] = (d1[x] + d3[x] + 1) >> 1;
+          } else {
+            d2[x] = (20*(d1[x] + d3[x])
+                     - 5*(dm1[x] + d5[x]) + dm3[x] + d7[x] + 16) >> 5;
+          }
         }
       }
       d = d.plus(2*dst_stride);
