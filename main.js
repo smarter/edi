@@ -163,6 +163,16 @@ document.addEventListener("DOMContentLoaded", function() {
     });
   }
 
+  let abs = Math.abs;
+  function memset(dst, c, n) {
+    for (let i = 0; i < n; i++)
+      dst[i] = c;
+  }
+  function OD_COPY(dst, src, n) {
+    for (let i = 0; i < n; i++)
+      dst[i] = src[i];
+  }
+
   function bilinear(w, h, src, dst, src_stride, dst_stride) {
     let xpad = OD_UMV_PADDING;
     let ypad = OD_UMV_PADDING;
@@ -202,14 +212,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // Based on od_state_upsample8 in src/state.c in Daala
   function daala(w, h, src, dst, src_stride, dst_stride) {
-    function memset(dst, c, n) {
-      for (let i = 0; i < n; i++)
-        dst[i] = c;
-    }
-    function OD_COPY(dst, src, n) {
-      for (let i = 0; i < n; i++)
-        dst[i] = src[i];
-    }
     let ypad = OD_UMV_PADDING;
     let xpad = OD_UMV_PADDING;
     let x, y;
@@ -296,26 +298,11 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   }
 
-  function reconstruct_v(src, xstride, ystride, a, b, c, d)
-  {
-    let x;
-
-    x = src[0 - 3 * ystride] * a;
-    x += src[0 - 2 * ystride] * b;
-    x += src[0 - 1 * ystride] * c;
-    x += src[0 - 0 * ystride] * d;
-    x += src[1*xstride + 0 * ystride] * d;
-    x += src[1*xstride + 1 * ystride] * c;
-    x += src[1*xstride + 2 * ystride] * b;
-    x += src[1*xstride + 3 * ystride] * a;
-    return (x + 16) >> 5;
-  }
-
   function sinc_filter(s, stride) {
     return 20*s[0] - 5*s[1*stride] + s[2*stride];
   }
 
-  function reconstruct_v2(s, xstride, ystride, a, b, c, d)
+  function reconstruct_v(s, xstride, ystride, a, b, c, d)
   {
     let x;
 
@@ -330,33 +317,18 @@ document.addEventListener("DOMContentLoaded", function() {
     return (x + 16*16) >> (5+4);
   }
 
-  function reconstruct_h(d1, d2, a, b, c, d)
+  function reconstruct_h(s, xstride, ystride, a, b, c, d)
   {
     let x;
 
-    x = d1[-3] * a;
-    x += d1[-2] * b;
-    x += d1[-1] * c;
-    x += d1[-0] * d;
-    x += d2[0] * d;
-    x += d2[1] * c;
-    x += d2[2] * b;
-    x += d2[3] * a;
-    return (x + 16) >> 5;
-  }
-
-  function reconstruct_h2(s, stride, a, b, c, d)
-  {
-    let x;
-
-    x = sinc_filter(s.plus(-3), -stride) * a;
-    x += sinc_filter(s.plus(-2), -stride) * b;
-    x += sinc_filter(s.plus(-1), -stride) * c;
-    x += sinc_filter(s.plus(-0), -stride) * d;
-    x += sinc_filter(s.plus(stride + 0), stride) * d;
-    x += sinc_filter(s.plus(stride + 1), stride) * c;
-    x += sinc_filter(s.plus(stride + 2), stride) * b;
-    x += sinc_filter(s.plus(stride + 3), stride) * a;
+    x = sinc_filter(s.plus(-3*xstride), -ystride) * a;
+    x += sinc_filter(s.plus(-2*xstride), -ystride) * b;
+    x += sinc_filter(s.plus(-1*xstride), -ystride) * c;
+    x += sinc_filter(s.plus(-0*xstride), -ystride) * d;
+    x += sinc_filter(s.plus(ystride + 0*xstride), ystride) * d;
+    x += sinc_filter(s.plus(ystride + 1*xstride), ystride) * c;
+    x += sinc_filter(s.plus(ystride + 2*xstride), ystride) * b;
+    x += sinc_filter(s.plus(ystride + 3*xstride), ystride) * a;
     return (x + 16*16) >> (5+4);
   }
 
@@ -371,133 +343,110 @@ document.addEventListener("DOMContentLoaded", function() {
     let s = src;
     let d = dst.plus(-dst_stride*2*ypad);
 
-    /* Horizontal filtering */
+    /* Padding, margin and source pixels copy */
     for (y = -ypad; y < h + ypad; y++) {
-      if (y >= MARGIN && y < h - MARGIN - 1) {
-        for (x = 0; x < w - 1; x++) {
-          let dx, dy, dx2;
-          let v;
-
-          dx = -s[-src_stride + x]
-            - s[-src_stride + x + 1]
-            + s[src_stride + x]
-            + s[src_stride + x + 1];
-          dx *= 2;
-
-          dy = -s[-src_stride + x]
-            - 2 * s[x]
-            - s[src_stride + x]
-            + s[-src_stride + x + 1]
-            + 2 * s[x + 1]
-            + s[src_stride + x + 1];
-
-          dx2 = -s[-src_stride + x]
-            + 2 * s[x]
-            - s[src_stride + x]
-            - s[-src_stride + x + 1]
-            + 2 * s[x + 1]
-            - s[src_stride + x + 1];
-
-          if (dy < 0) {
-            dy = -dy;
-            dx = -dx;
-          }
-
-          if (Math.abs(dx) <= 4 * Math.abs(dx2)) {
-            if (x < 2 || x >= w - 3) {
-              v = (s[x] + s[x + 1] + 1) >> 1;
-            } else {
-              v = (20*(s[x] + s[x + 1])
-               - 5*(s[x - 1] + s[x + 2]) + s[x - 2] + s[x + 3] + 16) >> 5;
-            }
-          } else if (dx < 0) {
-            if (x < 2 || x >= w - 3) {
-              if (dx < -2 * dy) {
-                v = reconstruct_v(s.plus(x), 1, src_stride, 0, 0, 0, 16);
-              } else if (dx < -dy) {
-                v = reconstruct_v(s.plus(x), 1, src_stride, 0, 0, 8, 8);
-              } else if (2 * dx < -dy) {
-                v = reconstruct_v(s.plus(x), 1, src_stride, 0, 4, 8, 4);
-              } else if (3 * dx < -dy) {
-                v = reconstruct_v(s.plus(x), 1, src_stride, 1, 7, 7, 1);
-              } else {
-                v = reconstruct_v(s.plus(x), 1, src_stride, 4, 8, 4, 0);
-              }
-            } else {
-              if (dx < -2 * dy) {
-                v = reconstruct_v2(s.plus(x), 1, src_stride, 0, 0, 0, 16);
-              } else if (dx < -dy) {
-                v = reconstruct_v2(s.plus(x), 1, src_stride, 0, 0, 8, 8);
-              } else if (2 * dx < -dy) {
-                v = reconstruct_v2(s.plus(x), 1, src_stride, 0, 4, 8, 4);
-              } else if (3 * dx < -dy) {
-                v = reconstruct_v2(s.plus(x), 1, src_stride, 1, 7, 7, 1);
-              } else {
-                v = reconstruct_v2(s.plus(x), 1, src_stride, 4, 8, 4, 0);
-              }
-            }
-          } else {
-            if (x < 2 || x >= w - 3) {
-              if (dx > 2 * dy) {
-                v = reconstruct_v(s.plus(x), 1, -src_stride, 0, 0, 0, 16);
-              } else if (dx > dy) {
-                v = reconstruct_v(s.plus(x), 1, -src_stride, 0, 0, 8, 8);
-              } else if (2 * dx > dy) {
-                v = reconstruct_v(s.plus(x), 1, -src_stride, 0, 4, 8, 4);
-              } else if (3 * dx > dy) {
-                v = reconstruct_v(s.plus(x), 1, -src_stride, 1, 7, 7, 1);
-              } else {
-                v = reconstruct_v(s.plus(x), 1, -src_stride, 4, 8, 4, 0);
-              }
-            } else {
-              if (dx > 2 * dy) {
-                v = reconstruct_v2(s.plus(x), 1, -src_stride, 0, 0, 0, 16);
-              } else if (dx > dy) {
-                v = reconstruct_v2(s.plus(x), 1, -src_stride, 0, 0, 8, 8);
-              } else if (2 * dx > dy) {
-                v = reconstruct_v2(s.plus(x), 1, -src_stride, 0, 4, 8, 4);
-              } else if (3 * dx > dy) {
-                v = reconstruct_v2(s.plus(x), 1, -src_stride, 1, 7, 7, 1);
-              } else {
-                v = reconstruct_v2(s.plus(x), 1, -src_stride, 4, 8, 4, 0);
-              }
-            }
-          }
-          d[x * 2] = s[x];
-          d[x * 2 + 1] = v;
+      memset(d.plus(-2*xpad), s[0], 2*xpad);
+      if (y < MARGIN || y >= h - MARGIN - 1) {
+        d[0] = s[0];
+        d[1] = (20*(s[0] + s[1]) - 5*(s[0] + s[2]) + s[0] + s[3] + 16) >> 5;
+        d[2] = s[1];
+        d[3] = (20*(s[1] + s[2]) - 5*(s[0] + s[3]) + s[0] + s[4] + 16) >> 5;
+        for (x = 2; x < w - 3; x++) {
+          d[2*x] = s[x];
+          d[2*x + 1] = (20*(s[x] + s[x + 1])
+           - 5*(s[x - 1] + s[x + 2]) + s[x - 2] + s[x + 3] + 16) >> 5;
         }
-        d[x * 2] = s[x];
-        d[x * 2 + 1] = s[x];
+        d[2*x] = s[x];
+        d[2*x + 1] = (20*(s[x] + s[x + 1])
+         - 5*(s[x - 1] + s[x + 2]) + s[x - 2] + s[x + 2] + 16) >> 5;
+        x++;
+        d[2*x] = s[x];
+        d[2*x + 1] = (20*(s[x] + s[x + 1])
+         - 5*(s[x - 1] + s[x + 1]) + s[x - 2] + s[x + 1] + 16) >> 5;
+        x++;
+        d[2*x] = s[x];
+        d[2*x + 1] = (36*s[x] - 5*s[x - 1] + s[x - 2] + 16) >> 5;
+        x++;
       } else {
-        for (x = 0; x < w - 1; x++) {
-          d[x * 2] = s[x];
-          if (x < 2 || x >= w - 3) {
-            d[x * 2 + 1] = (s[x] + s[x + 1] + 1) >> 1;
+        for (x = 0; x < w; x++)
+          d[2*x] = s[x];
+      }
+      memset(d.plus(2*w), s[w - 1], 2*xpad);
+      if (y >= 0 && y < h - 1)
+        s = s.plus(src_stride);
+      else
+        OD_COPY(d.plus(dst_stride - 2*xpad), d.plus(-2*xpad), 2*(w + 2*xpad));
+      d = d.plus(2*dst_stride);
+    }
+    /* Horizontal filtering */
+    d = dst.plus(dst_stride*2*MARGIN);
+    for (y = MARGIN; y < h - MARGIN - 1; y++) {
+      for (x = 0; x < 2*w; x += 2) {
+        let dx, dy, dx2;
+        let v;
+
+        dx = -d[-2*dst_stride + x]
+             - d[-2*dst_stride + x + 2]
+             + d[2*dst_stride + x]
+             + d[2*dst_stride + x + 2];
+        dx *= 2;
+
+        dy = -d[-2*dst_stride + x]
+             - 2 * d[x]
+             - d[2*dst_stride + x]
+             + d[-2*dst_stride + x + 2]
+             + 2 * d[x + 2]
+             + d[2*dst_stride + x + 2];
+
+        dx2 = -d[-2*dst_stride + x]
+              + 2 * d[x]
+              - d[2*dst_stride + x]
+              - d[-2*dst_stride + x + 2]
+              + 2 * d[x + 2]
+              - d[2*dst_stride + x + 2];
+
+        if (dy < 0) {
+          dy = -dy;
+          dx = -dx;
+        }
+
+        if (abs(dx) <= 4 * abs(dx2)) {
+          v = (20*(d[x] + d[x + 2])
+               - 5*(d[x - 2] + d[x + 4]) + d[x - 4] + d[x + 6] + 16) >> 5;
+        } else if (dx < 0) {
+          if (dx < -2 * dy) {
+            v = reconstruct_v(d.plus(x), 2, 2*dst_stride, 0, 0, 0, 16);
+          } else if (dx < -dy) {
+            v = reconstruct_v(d.plus(x), 2, 2*dst_stride, 0, 0, 8, 8);
+          } else if (2 * dx < -dy) {
+            v = reconstruct_v(d.plus(x), 2, 2*dst_stride, 0, 4, 8, 4);
+          } else if (3 * dx < -dy) {
+            v = reconstruct_v(d.plus(x), 2, 2*dst_stride, 1, 7, 7, 1);
           } else {
-            d[x * 2 + 1] =
-              (20*(s[x] + s[x + 1])
-               - 5*(s[x - 1] + s[x + 2]) + s[x - 2] + s[x + 3] + 16) >> 5;
+            v = reconstruct_v(d.plus(x), 2, 2*dst_stride, 4, 8, 4, 0);
+          }
+        } else {
+          if (dx > 2 * dy) {
+            v = reconstruct_v(d.plus(x), 2, -2*dst_stride, 0, 0, 0, 16);
+          } else if (dx > dy) {
+            v = reconstruct_v(d.plus(x), 2, -2*dst_stride, 0, 0, 8, 8);
+          } else if (2 * dx > dy) {
+            v = reconstruct_v(d.plus(x), 2, -2*dst_stride, 0, 4, 8, 4);
+          } else if (3 * dx > dy) {
+            v = reconstruct_v(d.plus(x), 2, -2*dst_stride, 1, 7, 7, 1);
+          } else {
+            v = reconstruct_v(d.plus(x), 2, -2*dst_stride, 4, 8, 4, 0);
           }
         }
-        d[x * 2] = s[x];
-        d[x * 2 + 1] = s[x];
+        d[x + 1] = v;
       }
-      for (x = -xpad; x < 0; x++) {
-        d[x * 2] = s[0];
-        d[x * 2 + 1] = s[0];
-      }
-      for (x = w; x < w + xpad; x++) {
-        d[x * 2] = s[w - 1];
-        d[x * 2 + 1] = s[w - 1];
-      }
-
       if (y >= 0 && y < h - 1)
         s = s.plus(src_stride);
       d = d.plus(2*dst_stride);
     }
     /* Vertical filtering */
-    d = dst.plus(-dst_stride*2*ypad);
-    for (y = -ypad; y < h + ypad - 1; y++) {
+    d = dst;
+    for (y = 0; y < h; y++) {
       let d1 = d;
       let d2 = d.plus(dst_stride);
       let d3 = d.plus(2*dst_stride);
@@ -506,116 +455,70 @@ document.addEventListener("DOMContentLoaded", function() {
       let dm1 = d.plus(-2*dst_stride);
       let dm3 = d.plus(-4*dst_stride);
 
-      for (x = -2*xpad; x < w * 2 + xpad*2; x++) {
-        if (x >= MARGIN && x < w * 2 - MARGIN - 1) {
+      for (x = -2*xpad; x < 2*w + 2*xpad; x++) {
+        if (x >= MARGIN && x < 2*w - MARGIN - 1) {
           let dx, dy;
           let dx2;
           let v;
 
           dx = -d1[x - 1]
-            - d3[x - 1]
-            + d1[x + 1]
-            + d3[x + 1];
+              - d3[x - 1]
+              + d1[x + 1]
+              + d3[x + 1];
           dx *= 2;
 
           dy = -d1[x - 1]
-            - 2 * d1[x]
-            - d1[x + 1]
-            + d3[x - 1]
-            + 2 * d3[x]
-            + d3[x + 1];
+              - 2 * d1[x]
+              - d1[x + 1]
+              + d3[x - 1]
+              + 2 * d3[x]
+              + d3[x + 1];
 
           dx2 = -d1[x - 1]
-            + 2 * d1[x]
-            - d1[x + 1]
-            - d3[x - 1]
-            + 2 * d3[x]
-            - d3[x + 1];
+              + 2 * d1[x]
+              - d1[x + 1]
+              - d3[x - 1]
+              + 2 * d3[x]
+              - d3[x + 1];
 
           if (dy < 0) {
             dy = -dy;
             dx = -dx;
           }
 
-          if (Math.abs(dx) <= 4 * Math.abs(dx2)) {
-            if (y < 2 || y >= w - 3) {
-              v = (d1[x] + d3[x] + 1) >> 1;
-            } else {
-              v = (20*(d1[x] + d3[x])
-               - 5*(dm1[x] + d5[x]) + dm3[x] + d7[x] + 16) >> 5;
-            }
+          if (abs(dx) <= 4*abs(dx2)) {
+            v = (20*(d1[x] + d3[x])
+             - 5*(dm1[x] + d5[x]) + dm3[x] + d7[x] + 16) >> 5;
           } else if (dx < 0) {
-            if (y < 2 || y >= w - 3) {
-              if (dx < -2 * dy) {
-                v = reconstruct_h(d1.plus(x), d3.plus(x), 0, 0, 0, 16);
-              } else if (dx < -dy) {
-                v = reconstruct_h(d1.plus(x), d3.plus(x), 0, 0, 8, 8);
-              } else if (2 * dx < -dy) {
-                v = reconstruct_h(d1.plus(x), d3.plus(x), 0, 4, 8, 4);
-              } else if (3 * dx < -dy) {
-                v = reconstruct_h(d1.plus(x), d3.plus(x), 1, 7, 7, 1);
-              } else {
-                v = reconstruct_h(d1.plus(x), d3.plus(x), 4, 8, 4, 0);
-              }
+            if (dx < -2 * dy) {
+              v = reconstruct_h(d1.plus(x), 1, 2*dst_stride, 0, 0, 0, 16);
+            } else if (dx < -dy) {
+              v = reconstruct_h(d1.plus(x), 1, 2*dst_stride, 0, 0, 8, 8);
+            } else if (2 * dx < -dy) {
+              v = reconstruct_h(d1.plus(x), 1, 2*dst_stride, 0, 4, 8, 4);
+            } else if (3 * dx < -dy) {
+              v = reconstruct_h(d1.plus(x), 1, 2*dst_stride, 1, 7, 7, 1);
             } else {
-              if (dx < -2 * dy) {
-                v = reconstruct_h2(d1.plus(x), 2*dst_stride, 0, 0, 0, 16);
-              } else if (dx < -dy) {
-                v = reconstruct_h2(d1.plus(x), 2*dst_stride, 0, 0, 8, 8);
-              } else if (2 * dx < -dy) {
-                v = reconstruct_h2(d1.plus(x), 2*dst_stride, 0, 4, 8, 4);
-              } else if (3 * dx < -dy) {
-                v = reconstruct_h2(d1.plus(x), 2*dst_stride, 1, 7, 7, 1);
-              } else {
-                v = reconstruct_h2(d1.plus(x), 2*dst_stride, 4, 8, 4, 0);
-              }
+              v = reconstruct_h(d1.plus(x), 1, 2*dst_stride, 4, 8, 4, 0);
             }
           } else {
-            if (y < 2 || y >= w - 3) {
-              if (dx > 2 * dy) {
-                v = reconstruct_h(d3.plus(x), d1.plus(x), 0, 0, 0, 16);
-              } else if (dx > dy) {
-                v = reconstruct_h(d3.plus(x), d1.plus(x), 0, 0, 8, 8);
-              } else if (2 * dx > dy) {
-                v = reconstruct_h(d3.plus(x), d1.plus(x), 0, 4, 8, 4);
-              } else if (3 * dx > dy) {
-                v = reconstruct_h(d3.plus(x), d1.plus(x), 1, 7, 7, 1);
-              } else {
-                v = reconstruct_h(d3.plus(x), d1.plus(x), 4, 8, 4, 0);
-              }
+            if (dx > 2 * dy) {
+              v = reconstruct_h(d3.plus(x), 1, -2*dst_stride, 0, 0, 0, 16);
+            } else if (dx > dy) {
+              v = reconstruct_h(d3.plus(x), 1, -2*dst_stride, 0, 0, 8, 8);
+            } else if (2 * dx > dy) {
+              v = reconstruct_h(d3.plus(x), 1, -2*dst_stride, 0, 4, 8, 4);
+            } else if (3 * dx > dy) {
+              v = reconstruct_h(d3.plus(x), 1, -2*dst_stride, 1, 7, 7, 1);
             } else {
-              if (dx > 2 * dy) {
-                v = reconstruct_h2(d3.plus(x), -2*dst_stride, 0, 0, 0, 16);
-              } else if (dx > dy) {
-                v = reconstruct_h2(d3.plus(x), -2*dst_stride, 0, 0, 8, 8);
-              } else if (2 * dx > dy) {
-                v = reconstruct_h2(d3.plus(x), -2*dst_stride, 0, 4, 8, 4);
-              } else if (3 * dx > dy) {
-                v = reconstruct_h2(d3.plus(x), -2*dst_stride, 1, 7, 7, 1);
-              } else {
-                v = reconstruct_h2(d3.plus(x), -2*dst_stride, 4, 8, 4, 0);
-              }
+              v = reconstruct_h(d3.plus(x), 1, -2*dst_stride, 4, 8, 4, 0);
             }
           }
           d2[x] = v;
         } else {
-          if (y < 2 || y >= w - 3) {
-            d2[x] = (d1[x] + d3[x] + 1) >> 1;
-          } else {
-            d2[x] = (20*(d1[x] + d3[x])
-                     - 5*(dm1[x] + d5[x]) + dm3[x] + d7[x] + 16) >> 5;
-          }
+          d2[x] = (20*(d1[x] + d3[x])
+           - 5*(dm1[x] + d5[x]) + dm3[x] + d7[x] + 16) >> 5;
         }
-      }
-      d = d.plus(2*dst_stride);
-    }
-    {
-      let d1 = d;
-      let d2 = d.plus(dst_stride);
-
-      for (x = -xpad; x < w + xpad; x++) {
-        d2[2 * x] = d1[2 * x];
-        d2[2 * x + 1] = d1[2 * x + 1];
       }
       d = d.plus(2*dst_stride);
     }
@@ -627,111 +530,132 @@ document.addEventListener("DOMContentLoaded", function() {
     let ypad = OD_UMV_PADDING;
     let x, y;
     let s = src;
-    let d = dst.plus(-dst_stride*2*ypad);
+    let d = dst;
 
-    /* Vertical filtering */
-    for (y = -ypad; y < h + ypad; y++) {
-      let s2 = s.plus(src_stride);
-      let d2 = d.plus(dst_stride);
-      if (y >= 0 && y < h - 1) {
-        for (x = 0; x < w - 1; x++) {
-          if (x >= MARGIN && x < w - MARGIN - 1) {
-            let dx, dy, dx2;
-            let v;
+    /* Padding, margin and source pixels copy */
+    for (y = 0; y < h; y++) {
+      let d1 = d;
+      let d2 = d1.plus(dst_stride);
 
-            dx = -s[x - 1]
-              - s2[x - 1]
-              + s[x + 1]
-              + s2[x + 1];
-            dx *= 2;
-            dy = -s[x - 1]
-              - 2 * s[x]
-              - s[x + 1]
-              + s2[x - 1]
-              + 2 * s2[x]
-              + s2[x + 1];
+      memset(d1.plus(-2*xpad), s[0], 2*xpad);
+      for (x = 0; x < w; x++)
+        d1[2*x] = s[x];
+      memset(d1.plus(2*w), s[w - 1], 2*xpad);
 
-            dx2 = -s[x - 1]
-              + 2 * s[x]
-              - s[x + 1]
-              - s2[x - 1]
-              + 2 * s2[x]
-              - s2[x + 1];
-
-            if (dy < 0) {
-              dy = -dy;
-              dx = -dx;
-            }
-
-            if (Math.abs(dx) <= 4 * Math.abs(dx2)) {
-              v = (s[x] + s2[x] + 1) >> 1;
-            } else if (dx < 0) {
-              if (dx < -2 * dy) {
-                v = reconstruct_h(s.plus(x), s2.plus(x), 0, 0, 0, 16);
-              } else if (dx < -dy) {
-                v = reconstruct_h(s.plus(x), s2.plus(x), 0, 0, 8, 8);
-              } else if (2 * dx < -dy) {
-                v = reconstruct_h(s.plus(x), s2.plus(x), 0, 4, 8, 4);
-              } else if (3 * dx < -dy) {
-                v = reconstruct_h(s.plus(x), s2.plus(x), 1, 7, 7, 1);
-              } else {
-                v = reconstruct_h(s.plus(x), s2.plus(x), 4, 8, 4, 0);
-              }
-            } else {
-              if (dx > 2 * dy) {
-                v = reconstruct_h(s2.plus(x), s.plus(x), 0, 0, 0, 16);
-              } else if (dx > dy) {
-                v = reconstruct_h(s2.plus(x), s.plus(x), 0, 0, 8, 8);
-              } else if (2 * dx > dy) {
-                v = reconstruct_h(s2.plus(x), s.plus(x), 0, 4, 8, 4);
-              } else if (3 * dx > dy) {
-                v = reconstruct_h(s2.plus(x), s.plus(x), 1, 7, 7, 1);
-              } else {
-                v = reconstruct_h(s2.plus(x), s.plus(x), 4, 8, 4, 0);
-              }
-            }
-            d[x * 2] = s[x];
-            d2[x * 2] = v;
-          } else {
-            d[x * 2] = s[x];
-            d2[x * 2] = (s[x] + s2[x] + 1) >> 1;
-          }
-        }
-        for (x = -xpad; x < 0; x++) {
-          d[x * 2] = s[0];
-          d2[x * 2] = (s[0] + s2[0] + 1) >> 1;
-        }
-        for (x = w - 1; x < w + xpad; x++) {
-          d[x * 2] = s[w - 1];
-          d2[x * 2] = (s[w - 1] + s2[w - 1] + 1) >> 1;
-        }
+      if (y < h - 1) {
+        for (x = 0; x < MARGIN; x++)
+          d2[2*x] = (s[x] + s[src_stride + x] + 1) >> 1;
+        if (y < MARGIN || y >= h - MARGIN - 1)
+          for (x = MARGIN; x < w - MARGIN - 1; x++)
+            d2[2*x] = (s[x] + s[src_stride + x] + 1) >> 1;
+        for (x = w - MARGIN - 1; x < w; x++)
+          d2[2*x] = (s[x] + s[src_stride + x] + 1) >> 1;
       } else {
-        for (x = 0; x < w - 1; x++) {
-          d[x * 2] = s[x];
-          d2[x * 2] = s[x];
-        }
-        for (x = -xpad; x < 0; x++) {
-          d[x * 2] = s[0];
-          d2[x * 2] = s[0];
-        }
-        for (x = w - 1; x < w + xpad; x++) {
-          d[x * 2] = s[w - 1];
-          d2[x * 2] = s[w - 1];
-        }
+        for (x = 0; x < w; x++)
+          d2[2*x] = d1[2*x];
       }
 
-      if (y >= 0 && y < h - 1)
-        s = s.plus(src_stride);
+      memset(d2.plus(-2*xpad), d2[0], 2*xpad);
+      memset(d2.plus(2*w), d2[2*(w - 1)], 2*xpad);
+
+      s = s.plus(src_stride);
+      d = d.plus(2*dst_stride);
+    }
+    {
+      let dpad;
+      d = dst;
+      dpad = dst.plus(-dst_stride*2*ypad);
+      for (y = 0; y < 2*ypad; y++) {
+        OD_COPY(dpad.plus(-2*xpad), d.plus(-2*xpad), 2*(w + 2*xpad));
+        dpad = dpad.plus(dst_stride);
+      }
+      d = dst.plus(dst_stride*2*(h - 1));
+      dpad = d.plus(dst_stride*2);
+      for (y = 0; y < 2*ypad; y++) {
+        OD_COPY(dpad.plus(-2*xpad), d.plus(-2*xpad), 2*(w + 2*xpad));
+        dpad = dpad.plus(dst_stride);
+      }
+    }
+
+    /* Vertical filtering */
+    d = dst.plus(dst_stride*2*MARGIN);
+    for (y = MARGIN; y < h - MARGIN - 1; y++) {
+      let d1 = d;
+      let d2 = d.plus(dst_stride);
+      let d3 = d.plus(2*dst_stride);
+      let d5 = d.plus(4*dst_stride);
+      let d7 = d.plus(6*dst_stride);
+      let dm1 = d.plus(-2*dst_stride);
+      let dm3 = d.plus(-4*dst_stride);
+
+      for (x = 2*MARGIN; x < 2*(w - MARGIN - 1); x += 2) {
+        let dx, dy, dx2;
+        let v;
+
+        dx = -d1[x - 2]
+          - d3[x - 2]
+          + d1[x + 2]
+          + d3[x + 2];
+        dx *= 2;
+        dy = -d1[x - 2]
+          - 2 * d1[x]
+          - d1[x + 2]
+          + d3[x - 2]
+          + 2 * d3[x]
+          + d3[x + 2];
+
+        dx2 = -d1[x - 2]
+          + 2 * d1[x]
+          - d1[x + 2]
+          - d3[x - 2]
+          + 2 * d3[x]
+          - d3[x + 2];
+
+        if (dy < 0) {
+          dy = -dy;
+          dx = -dx;
+        }
+
+        if (abs(dx) <= 4 * abs(dx2)) {
+          v = (20*(d1[x] + d3[x])
+           - 5*(dm1[x] + d5[x]) + dm3[x] + d7[x] + 16) >> 5;
+        } else if (dx < 0) {
+          if (dx < -2 * dy) {
+            v = reconstruct_h(d1.plus(x), 2, 2*dst_stride, 0, 0, 0, 16);
+          } else if (dx < -dy) {
+            v = reconstruct_h(d1.plus(x), 2, 2*dst_stride, 0, 0, 8, 8);
+          } else if (2 * dx < -dy) {
+            v = reconstruct_h(d1.plus(x), 2, 2*dst_stride, 0, 4, 8, 4);
+          } else if (3 * dx < -dy) {
+            v = reconstruct_h(d1.plus(x), 2, 2*dst_stride, 1, 7, 7, 1);
+          } else {
+            v = reconstruct_h(d1.plus(x), 2, 2*dst_stride, 4, 8, 4, 0);
+          }
+        } else {
+          if (dx > 2 * dy) {
+            v = reconstruct_h(d3.plus(x), 2, -2*dst_stride, 0, 0, 0, 16);
+          } else if (dx > dy) {
+            v = reconstruct_h(d3.plus(x), 2, -2*dst_stride, 0, 0, 8, 8);
+          } else if (2 * dx > dy) {
+            v = reconstruct_h(d3.plus(x), 2, -2*dst_stride, 0, 4, 8, 4);
+          } else if (3 * dx > dy) {
+            v = reconstruct_h(d3.plus(x), 2, -2*dst_stride, 1, 7, 7, 1);
+          } else {
+            v = reconstruct_h(d3.plus(x), 2, -2*dst_stride, 4, 8, 4, 0);
+          }
+        }
+        d2[x] = v;
+      }
       d = d.plus(2*dst_stride);
     }
     /* Horizontal filtering */
     d = dst.plus(-dst_stride*2*ypad);
-    for (y = -2*ypad; y < 2*h + 2*ypad; y++) {
+    for (y = -2*ypad; y < 2*(h + ypad); y++) {
       if (y >= MARGIN && y < 2*h - MARGIN - 1) {
         let d1 = d.plus(-dst_stride);
         let d2 = d;
         let d3 = d.plus(dst_stride);
-        for (x = -xpad; x < w + xpad - 1; x++) {
+        for (x = 0; x < w; x++) {
           let dx, dy;
           let dx2;
           let v;
@@ -761,7 +685,7 @@ document.addEventListener("DOMContentLoaded", function() {
             dx = -dx;
           }
 
-          if (Math.abs(dx) <= 4 * Math.abs(dx2)) {
+          if (abs(dx) <= 4 * abs(dx2)) {
             v = (d2[2*x] + d2[2*x + 2] + 1) >> 1;
           } else if (dx < 0) {
             if (dx < -2 * dy) {
@@ -791,7 +715,7 @@ document.addEventListener("DOMContentLoaded", function() {
           d2[2*x + 1] = v;
         }
       } else {
-        for (x = -xpad; x < w + xpad - 1; x++)
+        for (x = 0; x < w; x++)
           d[2*x + 1] = (d[2*x] + d[2*x + 2] + 1) >> 1;
       }
       d[2*x + 1] = d[2*x];
