@@ -77,8 +77,8 @@ document.addEventListener("DOMContentLoaded", function() {
     let srcData = srcCanvas.getContext("2d").getImageData(0, 0, width, height).data;
     let buf = new Uint8ClampedArray(new ArrayBuffer(dstWidth * dstHeight * 4));
     let dstData = new ImageData(buf, dstWidth, dstHeight);
-    let src = atOffset(srcData, 0);
-    let dst = atOffset(buf, (OD_UMV_PADDING*2)*dstWidth + OD_UMV_PADDING*2);
+    let src = atOffset(srcData, 0, width*height*4);
+    let dst = atOffset(buf, (OD_UMV_PADDING*2)*dstWidth + OD_UMV_PADDING*2, dstWidth*dstHeight*4);
     let src_stride = width;
     let dst_stride = dstWidth;
 
@@ -109,39 +109,55 @@ document.addEventListener("DOMContentLoaded", function() {
     d[4*i + 3] = 255;
   }
 
-  function atOffset(buf, offset) {
+  function atOffset(buf, offset, length) {
     // The Proxy API is part of ECMAScript 6
     return Proxy.create({
       get: function(target, attr) {
         if (attr == "plus")
           return function(offset2) {
-            return atOffset(buf, offset + offset2);
+            return atOffset(buf, offset + offset2, length);
           };
 
         let i = parseInt(attr, 10);
+        if (offset + i < 0 || i + offset >= length) {
+          console.error("Out of bound access: " + (i + offset));
+          return 0;
+        }
         return srcLuma(buf, offset + i);
       },
       set: function(target, attr, value) {
         let i = parseInt(attr, 10);
+        if (offset + i < 0 || i + offset >= length) {
+          console.error("Out of bound access: " + (i + offset));
+          return 0;
+        }
         setLuma(buf, offset + i, value);
       }
     });
   }
 
-  function atOffset2(buf, offset) {
+  function atOffset2(buf, offset, length) {
     // The Proxy API is part of ECMAScript 6
     return Proxy.create({
       get: function(target, attr) {
         if (attr == "plus")
           return function(offset2) {
-            return atOffset2(buf, offset + offset2);
+            return atOffset2(buf, offset + offset2, length);
           };
 
         let i = parseInt(attr, 10);
+        if (offset + i < 0 || i + offset >= length) {
+          console.error("Out of bound access: " + (i + offset));
+          return 0;
+        }
         return buf[offset + i];
       },
       set: function(target, attr, value) {
         let i = parseInt(attr, 10);
+        if (offset + i < 0 || i + offset >= length) {
+          console.error("Out of bound access: " + (i + offset));
+          return 0;
+        }
         buf[offset + i] = value;
       }
     });
@@ -203,7 +219,7 @@ document.addEventListener("DOMContentLoaded", function() {
     let ref_line_buf = new Array(8);
     for (let i = 0; i < 8; i++)
       ref_line_buf[i] =
-      atOffset2(new Uint8ClampedArray(new ArrayBuffer(2*(w + 2*xpad))), 2*xpad);
+      atOffset2(new Uint8ClampedArray(new ArrayBuffer(2*(w + 2*xpad))), 2*xpad, 2*(w + 2*xpad));
 
     for (y = -ypad; y < h + ypad + 3; y++) {
       /*Horizontal filtering:*/
