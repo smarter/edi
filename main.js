@@ -216,7 +216,7 @@ document.addEventListener("DOMContentLoaded", function() {
     let xpad = OD_UMV_PADDING;
     let x, y;
 
-    let dst = dst.plus(-dst_stride*2*ypad);
+    dst = dst.plus(-dst_stride*2*ypad);
 
     let ref_line_buf = new Array(8);
     for (let i = 0; i < 8; i++)
