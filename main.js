@@ -111,7 +111,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
   function atOffset(buf, offset, length) {
     // The Proxy API is part of ECMAScript 6
-    return Proxy.create({
+    return new Proxy({}, {
       get: function(target, attr) {
         if (attr == "plus")
           return function(offset2) {
@@ -129,16 +129,18 @@ document.addEventListener("DOMContentLoaded", function() {
         let i = parseInt(attr, 10);
         if (offset + i < 0 || i + offset >= length) {
           console.error("Out of bound access: " + (i + offset));
-          return 0;
+          return false;
         }
         setLuma(buf, offset + i, value);
+
+        return true;
       }
     });
   }
 
   function atOffset2(buf, offset, length) {
     // The Proxy API is part of ECMAScript 6
-    return Proxy.create({
+    return new Proxy({}, {
       get: function(target, attr) {
         if (attr == "plus")
           return function(offset2) {
@@ -156,9 +158,11 @@ document.addEventListener("DOMContentLoaded", function() {
         let i = parseInt(attr, 10);
         if (offset + i < 0 || i + offset >= length) {
           console.error("Out of bound access: " + (i + offset));
-          return 0;
+          return false;
         }
         buf[offset + i] = value;
+
+        return true;
       }
     });
   }
